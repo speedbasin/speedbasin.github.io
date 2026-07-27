@@ -1,2 +1,2 @@
-# speedbasin.github.io
-The Basin of Speed.
+# Speed Basin
+The Basin of Lightspeed.
