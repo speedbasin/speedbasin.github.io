@@ -1,10 +1,447 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>My Website</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti Lightspeed | Chess Directory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #312e2b;
+            --panel: #262522;
+            --cream: #f0d9b5;
+            --green: #81b64c;
+            --text: #f7f7f7;
+            --muted: #b7b7b7;
+            --border: rgba(255,255,255,.1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            color: var(--text);
+            font-family: "DM Sans", sans-serif;
+            background:
+                linear-gradient(rgba(49,46,43,.93), rgba(49,46,43,.98)),
+                repeating-conic-gradient(
+                    from 45deg,
+                    #3c3936 0 25%,
+                    #312e2b 0 50%
+                ) 0 0 / 88px 88px;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 18px clamp(20px,5vw,72px);
+            border-bottom: 1px solid var(--border);
+            background: rgba(38,37,34,.95);
+            backdrop-filter: blur(15px);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-icon {
+            display: grid;
+            width: 44px;
+            height: 44px;
+            place-items: center;
+            color: var(--bg);
+            font-size: 27px;
+            border-radius: 12px;
+            background: var(--cream);
+        }
+
+        h1, h2, h3 {
+            font-family: "Playfair Display", serif;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 25px;
+        }
+
+        .brand p {
+            margin: 2px 0 0;
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .search-box {
+            width: min(390px, 45vw);
+        }
+
+        .search {
+            width: 100%;
+            padding: 12px 15px;
+            color: white;
+            font: inherit;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            outline: none;
+            background: rgba(255,255,255,.08);
+        }
+
+        .search:focus {
+            border-color: var(--green);
+            box-shadow: 0 0 0 3px rgba(129,182,76,.15);
+        }
+
+        main {
+            width: min(1400px, calc(100% - 40px));
+            margin: auto;
+            padding: 55px 0 70px;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 30px;
+            align-items: end;
+            margin-bottom: 40px;
+        }
+
+        .eyebrow {
+            color: var(--green);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .hero h2 {
+            max-width: 700px;
+            margin: 12px 0 18px;
+            font-size: clamp(42px,6vw,76px);
+            line-height: .98;
+            letter-spacing: -2px;
+        }
+
+        .hero h2 em {
+            color: var(--cream);
+            font-style: normal;
+        }
+
+        .hero-copy {
+            max-width: 520px;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2,1fr);
+            gap: 12px;
+        }
+
+        .stat {
+            padding: 20px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(38,37,34,.8);
+        }
+
+        .stat strong {
+            display: block;
+            color: var(--cream);
+            font: 31px "Playfair Display", serif;
+        }
+
+        .stat span,
+        .section-count {
+            color: var(--muted);
+            font-size: 12px;
+            letter-spacing: .8px;
+            text-transform: uppercase;
+        }
+
+        .section {
+            margin-top: 42px;
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 17px;
+        }
+
+        .section-heading h3 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .section-heading h3::before {
+            width: 7px;
+            height: 29px;
+            content: "";
+            border-radius: 5px;
+            background: var(--green);
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            min-height: 205px;
+            padding: 19px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            background: linear-gradient(145deg, #44413d, #232220);
+            transition: transform .2s, border-color .2s;
+        }
+
+        .card:hover {
+            border-color: var(--green);
+            transform: translateY(-4px);
+        }
+
+        .card-top {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+        }
+
+        .avatar {
+            display: grid;
+            flex: 0 0 58px;
+            width: 58px;
+            height: 58px;
+            overflow: hidden;
+            place-items: center;
+            color: var(--bg);
+            font: 700 22px "Playfair Display", serif;
+            border: 3px solid var(--cream);
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--cream), #aa8055);
+        }
+
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .identity {
+            min-width: 0;
+        }
+
+        .username {
+            overflow: hidden;
+            margin: 0;
+            font-size: 17px;
+            font-weight: 700;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .role {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 4px 8px;
+            color: var(--green);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border-radius: 4px;
+            background: rgba(129,182,76,.14);
+        }
+
+        .details {
+            display: grid;
+            gap: 10px;
+            margin-top: 22px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .detail {
+            display: flex;
+            gap: 9px;
+        }
+
+        .detail-icon {
+            width: 18px;
+            color: var(--cream);
+            text-align: center;
+        }
+
+        .loading,
+        .message {
+            padding: 30px;
+            color: var(--muted);
+            text-align: center;
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            background: rgba(38,37,34,.75);
+        }
+
+        .loader {
+            width: 28px;
+            height: 28px;
+            margin: 0 auto 10px;
+            border: 3px solid rgba(255,255,255,.15);
+            border-top-color: var(--green);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        footer {
+            padding: 30px;
+            color: var(--muted);
+            font-size: 12px;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        footer span { color: var(--cream); }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 760px) {
+            .topbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .hero {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: repeat(4,1fr);
+            }
+
+            .stat {
+                padding: 13px 7px;
+                text-align: center;
+            }
+
+            .stat strong { font-size: 22px; }
+            .stat span { font-size: 9px; }
+        }
+
+        @media (max-width: 460px) {
+            main {
+                width: calc(100% - 28px);
+            }
+
+            .hero h2 {
+                font-size: 43px;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Hello World!</h1>
-    <p>Welcome to my GitHub Pages website.</p>
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon">♞</div>
+            <div>
+                <h1>Anti Lightspeed</h1>
+                <p>Chess Directory</p>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <input id="search" class="search" type="search"
+                   placeholder="Search every member..."
+                   aria-label="Search every member">
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div>
+                <div class="eyebrow">Anti Lightspeed and more</div>
+                <h2>Because, why <em>not?</em></h2>
+                <p class="hero-copy">
+                    Literally the complete member directory.
+                </p>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <strong id="leader-count">30</strong>
+                    <span>Leaders</span>
+                </div>
+                <div class="stat">
+                    <strong>03</strong>
+                    <span>Ranks</span>
+                </div>
+                <div class="stat">
+                    <strong id="profile-count">0</strong>
+                    <span>Profiles</span>
+                </div>
+                <div class="stat">
+                    <strong id="member-count">—</strong>
+                    <span>Members</span>
+                </div>
+            </div>
+        </section>
+
+        <div id="leadership"></div>
+
+        <section id="members-section" class="section">
+            <div class="section-heading">
+                <h3>♟ Every Club Member</h3>
+                <span id="members-status" class="section-count">Loading...</span>
+            </div>
+
+            <div id="members-grid" class="cards">
+                <div class="loading">
+                    <div class="loader"></div>
+                    Loading club members...
+                </div>
+            </div>
+        </section>
+
+        <div id="empty" class="message hidden">
+            No players match your search.
+        </div>
+    </main>
+
+    <footer>
+        Player data provided by <span>Chess.com Public API</span>
+    </footer>
+
+    <script src="members-fix.js"></script>
 </body>
 </html>
