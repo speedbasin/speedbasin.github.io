@@ -59,10 +59,16 @@
             width: 44px;
             height: 44px;
             place-items: center;
-            color: var(--bg);
-            font-size: 27px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,.15);
             border-radius: 12px;
             background: var(--cream);
+        }
+
+        .brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         h1, h2, h3 {
@@ -373,7 +379,12 @@
 <body>
     <header class="topbar">
         <div class="brand">
-            <div class="brand-icon">♞</div>
+            <div class="brand-icon">
+                <img
+                    src="https://images.chesscomfiles.com/uploads/v1/group/835671.dc4735de.50x50o.47888a164ed1.png"
+                    alt="Anti Lightspeed logo">
+            </div>
+
             <div>
                 <h1>Anti Lightspeed</h1>
                 <p>Chess Directory</p>
