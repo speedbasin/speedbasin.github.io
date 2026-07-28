@@ -12,7 +12,7 @@
             icon: "♛",
             players: [
                 "ultra_saa", "azmdihih", "rose_5525", "glitchy81",
-                "aliceluhu", "randomchiken", "JoeMomma2105",
+                "aliceluhu", "randomchiken", "Zyflin",
                 "Spectrum6767", "josephtoasteph"
             ]
         },
@@ -21,7 +21,7 @@
             icon: "♜",
             players: [
                 "ECZ32", "toaster1222e", "Hampder", "sh1ori_0",
-                "Blazefire800", "I_sus_I", "Zyflin", "xiaoshenfan"
+                "Blazefire800", "I_sus_I", "xiaoshenfan"
             ]
         },
         {
