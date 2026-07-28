@@ -1,7 +1,10 @@
 (() => {
+    "use strict";
+
     const API = "https://api.chess.com/pub";
     const CLUB_URL = `${API}/club/anti-lightspeed-and-more/members`;
     const CORS_PROXY = "https://corsproxy.io/?url=";
+    const REQUEST_TIMEOUT = 12000; 
 
     const groups = [
         {
@@ -33,16 +36,19 @@
         }
     ];
 
-    const $ = id => document.getElementById(id);
     const leaderTotal = groups.reduce(
         (total, group) => total + group.players.length,
         0
     );
 
-    let loadingState = {
+    const state = {
         completed: 0,
-        total: leaderTotal
+        total: leaderTotal + 1,
+        leadershipDone: false,
+        membersDone: false
     };
+
+    const $ = id => document.getElementById(id);
 
     function escapeHtml(value = "") {
         return String(value).replace(/[&<>"']/g, character => ({
@@ -54,21 +60,25 @@
         }[character]));
     }
 
-    function addControls() {
+    function addStyles() {
+        if (document.getElementById("members-fix-styles")) return;
+
         const style = document.createElement("style");
+        style.id = "members-fix-styles";
 
         style.textContent = `
             .sync-indicator {
                 position: relative;
-                margin-bottom: 25px;
+                margin: 0 0 25px;
                 padding: 14px 17px;
                 overflow: hidden;
                 color: var(--muted);
                 font-size: 13px;
                 border: 1px solid var(--border);
                 border-radius: 12px;
-                background: rgba(38,37,34,.86);
-                transition: opacity .35s, max-height .35s, margin .35s, padding .35s;
+                background: rgba(38,37,34,.9);
+                transition: opacity .35s, max-height .35s,
+                            margin .35s, padding .35s;
             }
 
             .sync-indicator::after {
@@ -130,67 +140,78 @@
             body.no-animations *,
             body.no-animations *::before,
             body.no-animations *::after {
-                animation-duration: 0s !important;
-                animation-delay: 0s !important;
-                scroll-behavior: auto !important;
+                animation: none !important;
                 transition: none !important;
+                scroll-behavior: auto !important;
             }
         `;
 
         document.head.appendChild(style);
+    }
+
+    function createIndicator() {
+        if ($("sync-indicator")) return;
 
         const indicator = document.createElement("div");
         indicator.id = "sync-indicator";
         indicator.className = "sync-indicator";
         indicator.innerHTML = `
             <div class="sync-row">
-                <span class="sync-title">♞ Loading Chess.com data...</span>
+                <span class="sync-title">
+                    ♞ Connecting to Chess.com...
+                </span>
                 <span class="sync-percent">0%</span>
             </div>
         `;
 
         $("leadership").before(indicator);
+    }
 
-        const toggle = document.createElement("button");
-        toggle.type = "button";
-        toggle.className = "animation-toggle";
-        toggle.textContent = "Animations: On";
-        toggle.setAttribute("aria-pressed", "true");
+    function createAnimationToggle() {
+        if (document.querySelector(".animation-toggle")) return;
 
-        toggle.addEventListener("click", () => {
-            const disabled = document.body.classList.toggle("no-animations");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "animation-toggle";
+        button.textContent = "Animations: On";
+        button.setAttribute("aria-pressed", "true");
 
-            toggle.textContent = disabled
+        button.addEventListener("click", () => {
+            const disabled =
+                document.body.classList.toggle("no-animations");
+
+            button.textContent = disabled
                 ? "Animations: Off"
                 : "Animations: On";
 
-            toggle.setAttribute("aria-pressed", String(!disabled));
+            button.setAttribute("aria-pressed", String(!disabled));
         });
 
-        document.querySelector(".search-box").appendChild(toggle);
+        document.querySelector(".search-box").appendChild(button);
     }
 
-    function updateLoading(phase, completed = loadingState.completed) {
+    function updateIndicator(message, completed = state.completed) {
         const indicator = $("sync-indicator");
         if (!indicator) return;
 
-        loadingState.completed = completed;
+        state.completed = completed;
 
-        const percent = loadingState.total
+        const percentage = state.total
             ? Math.min(
                 100,
-                Math.round(
-                    loadingState.completed / loadingState.total * 100
-                )
+                Math.round(state.completed / state.total * 100)
             )
             : 0;
 
-        indicator.style.setProperty("--progress", `${percent}%`);
-        indicator.querySelector(".sync-title").textContent = `♞ ${phase}`;
-        indicator.querySelector(".sync-percent").textContent = `${percent}%`;
+        indicator.style.setProperty("--progress", `${percentage}%`);
+        indicator.querySelector(".sync-title").textContent = `♞ ${message}`;
+        indicator.querySelector(".sync-percent").textContent =
+            `${percentage}%`;
     }
 
-    function finishLeadershipLoading() {
+    function finishLoading() {
+        if (!state.leadershipDone || !state.membersDone) return;
+
         const indicator = $("sync-indicator");
         if (!indicator) return;
 
@@ -207,7 +228,43 @@
         }, 900);
     }
 
-    function fallback(username, role = "Club Member") {
+    async function fetchWithTimeout(url) {
+        const controller = new AbortController();
+        const timer = setTimeout(
+            () => controller.abort(),
+            REQUEST_TIMEOUT
+        );
+
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: { Accept: "application/json" }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            return await response.json();
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function request(apiUrl) {
+        try {
+            return await fetchWithTimeout(apiUrl);
+        } catch (directError) {
+            console.warn("Direct Chess.com request failed:", directError);
+
+            const proxyUrl =
+                CORS_PROXY + encodeURIComponent(apiUrl);
+
+            return fetchWithTimeout(proxyUrl);
+        }
+    }
+
+    function fallbackProfile(username, role = "Club Member") {
         return {
             username,
             role,
@@ -215,25 +272,6 @@
             country: "Chess.com member",
             location: "Location unavailable"
         };
-    }
-
-    async function request(apiUrl) {
-        try {
-            const response = await fetch(apiUrl, {
-                headers: { Accept: "application/json" }
-            });
-
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.json();
-        } catch {
-            const proxyUrl = CORS_PROXY + encodeURIComponent(apiUrl);
-            const response = await fetch(proxyUrl, {
-                headers: { Accept: "application/json" }
-            });
-
-            if (!response.ok) throw new Error(`Proxy HTTP ${response.status}`);
-            return response.json();
-        }
     }
 
     async function getProfile(username, role = "Club Member") {
@@ -252,11 +290,11 @@
                 location: data.location || "Location unavailable"
             };
         } catch {
-            return fallback(username, role);
+            return fallbackProfile(username, role);
         }
     }
 
-    function card(profile) {
+    function createCard(profile) {
         const initials = escapeHtml(
             profile.username.slice(0, 2).toUpperCase()
         );
@@ -268,7 +306,7 @@
                     onerror="this.remove()">`
             : initials;
 
-        const searchText = [
+        const searchableText = [
             profile.username,
             profile.role,
             profile.country,
@@ -278,11 +316,14 @@
         return `
             <article class="card"
                      data-username="${escapeHtml(profile.username)}"
-                     data-search="${escapeHtml(searchText)}">
+                     data-search="${escapeHtml(searchableText)}">
                 <div class="card-top">
                     <div class="avatar">${avatar}</div>
+
                     <div class="identity">
-                        <p class="username">${escapeHtml(profile.username)}</p>
+                        <p class="username">
+                            ${escapeHtml(profile.username)}
+                        </p>
                         <span class="role">
                             ${escapeHtml(profile.role.toUpperCase())}
                         </span>
@@ -308,7 +349,69 @@
         `;
     }
 
-    function getMemberNames(data) {
+    function createLeadershipSections() {
+        $("leadership").innerHTML = groups.map(group => {
+            const id = group.name.replace(/\W/g, "");
+
+            return `
+                <section class="section">
+                    <div class="section-heading">
+                        <h3>${group.icon} ${group.name}</h3>
+                        <span class="section-count">
+                            ${group.players.length} members
+                        </span>
+                    </div>
+
+                    <div id="${id}" class="cards">
+                        <div class="loading">
+                            Loading profiles...
+                        </div>
+                    </div>
+                </section>
+            `;
+        }).join("");
+    }
+
+    async function loadLeadership() {
+        createLeadershipSections();
+        updateIndicator("Loading leadership profiles", 0);
+
+        const requests = groups.flatMap(group =>
+            group.players.map(async username => {
+                const profile = await getProfile(username, group.name);
+
+                state.completed++;
+                updateIndicator(
+                    "Loading leadership profiles",
+                    state.completed
+                );
+
+                return {
+                    group: group.name,
+                    profile
+                };
+            })
+        );
+
+        const profiles = await Promise.all(requests);
+
+        groups.forEach(group => {
+            const groupProfiles = profiles.filter(
+                item => item.group === group.name
+            );
+
+            $(group.name.replace(/\W/g, "")).innerHTML =
+                groupProfiles.map(item =>
+                    createCard(item.profile)
+                ).join("");
+        });
+
+        $("profile-count").textContent = leaderTotal;
+        state.leadershipDone = true;
+        finishLoading();
+    }
+
+    function extractMembers(data) {
         const names = new Map();
 
         [
@@ -333,159 +436,124 @@
         return [...names.values()];
     }
 
-    function createLeadershipSections() {
-        $("leadership").innerHTML = groups.map(group => {
-            const id = group.name.replace(/\W/g, "");
-
-            return `
-                <section class="section">
-                    <div class="section-heading">
-                        <h3>${group.icon} ${group.name}</h3>
-                        <span class="section-count">
-                            ${group.players.length} members
-                        </span>
-                    </div>
-
-                    <div id="${id}" class="cards">
-                        <div class="loading">Loading profiles...</div>
-                    </div>
-                </section>
-            `;
-        }).join("");
-    }
-
-    async function loadLeadership() {
-        createLeadershipSections();
-        updateLoading("Loading leadership profiles", 0);
-
-        const requests = groups.flatMap(group =>
-            group.players.map(async username => ({
-                profile: await getProfile(username, group.name),
-                group
-            }))
-        );
-
-        const profiles = await Promise.all(
-            requests.map(async promise => {
-                const result = await promise;
-
-                loadingState.completed++;
-                updateLoading(
-                    "Loading leadership profiles",
-                    loadingState.completed
-                );
-
-                return result;
-            })
-        );
-
-        groups.forEach(group => {
-            const groupProfiles = profiles.filter(
-                item => item.group.name === group.name
-            );
-
-            $(group.name.replace(/\W/g, "")).innerHTML =
-                groupProfiles
-                    .map(item => card(item.profile))
-                    .join("");
-        });
-
-        $("profile-count").textContent = leaderTotal;
-
-        finishLeadershipLoading();
-    }
-
     async function loadMembers() {
         const grid = $("members-grid");
         const status = $("members-status");
 
+        updateIndicator("Loading club members", state.completed);
+
+        let data;
+
         try {
-            const data = await request(CLUB_URL);
-            const usernames = getMemberNames(data);
-
-            loadingState.total = Math.max(
-                loadingState.total,
-                leaderTotal + usernames.length
-            );
-
-            $("member-count").textContent = usernames.length;
-            status.textContent = `${usernames.length} members`;
-
-            if (!usernames.length) {
-                grid.innerHTML = `
-                    <div class="message">
-                        The Chess.com API returned no members.
-                    </div>
-                `;
-                return;
-            }
-
-            grid.innerHTML = usernames
-                .map(username => card(fallback(username)))
-                .join("");
-
-            const cards = [...grid.querySelectorAll(".card")];
-            const loaded = new Set();
-
-            const enrich = async cardElement => {
-                const username = cardElement.dataset.username;
-
-                if (loaded.has(username)) return;
-                loaded.add(username);
-
-                const profile = await getProfile(username);
-                const avatar = cardElement.querySelector(".avatar");
-
-                if (profile.avatar) {
-                    avatar.innerHTML = `
-                        <img src="${escapeHtml(profile.avatar)}"
-                             alt="${escapeHtml(username)} avatar"
-                             loading="lazy">
-                    `;
-                }
-
-                cardElement.querySelector(".country").textContent =
-                    profile.country;
-
-                cardElement.querySelector(".location").textContent =
-                    profile.location;
-
-                cardElement.dataset.search = [
-                    username,
-                    profile.country,
-                    profile.location,
-                    "club member"
-                ].join(" ").toLowerCase();
-
-                $("profile-count").textContent =
-                    `${leaderTotal + loaded.size}`;
-            };
-
-            if ("IntersectionObserver" in window) {
-                const observer = new IntersectionObserver(entries => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            observer.unobserve(entry.target);
-                            enrich(entry.target);
-                        }
-                    });
-                }, { rootMargin: "400px" });
-
-                cards.forEach(cardElement => observer.observe(cardElement));
-            } else {
-                cards.slice(0, 20).forEach(enrich);
-            }
+            data = await request(CLUB_URL);
         } catch (error) {
-            console.error("Unable to load club members:", error);
+            console.error("Club member request failed:", error);
 
             status.textContent = "API unavailable";
             grid.innerHTML = `
                 <div class="message">
-                    Chess.com did not allow the club member request.
-                    Please refresh and try again.
+                    Could not load club members. The Chess.com API or
+                    CORS proxy did not respond within 12 seconds.
                 </div>
             `;
+
+            state.membersDone = true;
+            finishLoading();
+            return;
         }
+
+        const usernames = extractMembers(data);
+
+        $("member-count").textContent = usernames.length;
+        status.textContent = `${usernames.length} members`;
+
+        if (!usernames.length) {
+            grid.innerHTML = `
+                <div class="message">
+                    Chess.com returned no members.
+                </div>
+            `;
+
+            state.membersDone = true;
+            finishLoading();
+            return;
+        }
+
+        state.total = Math.max(
+            state.total,
+            leaderTotal + usernames.length
+        );
+
+        // hopfully works now
+        grid.innerHTML = usernames.map(username =>
+            createCard(fallbackProfile(username))
+        ).join("");
+
+        state.completed = Math.min(
+            state.total,
+            state.completed + usernames.length
+        );
+
+        updateIndicator(
+            "Member list loaded",
+            state.completed
+        );
+
+        // lazy loading
+        const cards = [...grid.querySelectorAll(".card")];
+        const loaded = new Set();
+
+        async function enrich(card) {
+            const username = card.dataset.username;
+
+            if (loaded.has(username)) return;
+            loaded.add(username);
+
+            const profile = await getProfile(username);
+            const avatar = card.querySelector(".avatar");
+
+            if (profile.avatar) {
+                avatar.innerHTML = `
+                    <img src="${escapeHtml(profile.avatar)}"
+                         alt="${escapeHtml(username)} avatar"
+                         loading="lazy">
+                `;
+            }
+
+            card.querySelector(".country").textContent =
+                profile.country;
+
+            card.querySelector(".location").textContent =
+                profile.location;
+
+            card.dataset.search = [
+                username,
+                profile.country,
+                profile.location,
+                "club member"
+            ].join(" ").toLowerCase();
+
+            $("profile-count").textContent =
+                leaderTotal + loaded.size;
+        }
+
+        if ("IntersectionObserver" in window) {
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        observer.unobserve(entry.target);
+                        enrich(entry.target);
+                    }
+                });
+            }, { rootMargin: "400px" });
+
+            cards.forEach(card => observer.observe(card));
+        } else {
+            cards.slice(0, 20).forEach(enrich);
+        }
+
+        state.membersDone = true;
+        finishLoading();
     }
 
     function enableSearch() {
@@ -497,11 +565,10 @@
                 const cards = [...section.querySelectorAll(".card")];
                 let sectionVisible = 0;
 
-                cards.forEach(cardElement => {
-                    const matches =
-                        cardElement.dataset.search.includes(query);
+                cards.forEach(card => {
+                    const matches = card.dataset.search.includes(query);
 
-                    cardElement.classList.toggle("hidden", !matches);
+                    card.classList.toggle("hidden", !matches);
 
                     if (matches) {
                         visible++;
@@ -515,19 +582,32 @@
                 );
             });
 
-            $("empty").classList.toggle("hidden", visible !== 0);
+            $("empty").classList.toggle("hidden", visible > 0);
         });
     }
 
-    addControls();
-    enableSearch();
+    function start() {
+        addStyles();
+        createIndicator();
+        createAnimationToggle();
+        enableSearch();
 
-    loadLeadership().catch(error => {
-        console.error("Leadership loading failed:", error);
-        updateLoading("Leadership loading failed");
-    });
+        loadLeadership().catch(error => {
+            console.error("Leadership loading failed:", error);
+            state.leadershipDone = true;
+            finishLoading();
+        });
 
-    loadMembers().catch(error => {
-        console.error("Member loading failed:", error);
-    });
+        loadMembers().catch(error => {
+            console.error("Member loading failed:", error);
+            state.membersDone = true;
+            finishLoading();
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", start);
+    } else {
+        start();
+    }
 })();
